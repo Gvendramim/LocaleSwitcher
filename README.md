@@ -66,6 +66,7 @@ O idioma é definido no site usando o plugin Polylang, e o idioma do usuário é
 
 ### Exemplo de Mapeamento
    - Aqui está um exemplo de como você pode configurar o mapeamento de país para idioma:
+     ```bash
     {
         "BR": "pt_BR",
         "US": "en_US",
