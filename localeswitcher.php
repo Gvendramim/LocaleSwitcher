@@ -2,9 +2,9 @@
 
 /**
  * Plugin Name: LocaleSwitcher
- * Description: Detecta a localização do Usuário e Define o Idioma Automaticamente Usando Polylang.
- * Version: 1.0
- * Author: Gabriel Vendramim.
+ * Description: Detects User Location and Sets Language Automatically Using Polylang.
+ * Version: 1.1
+ * Author: Gabriel Vendramim
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -12,17 +12,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class LocaleSwitcher {
-    private $api_url = 'https://ipinfo.io/json?token=YOUR_TOKEN_HERE'; // Substitua pelo seu token do ipinfo.io
-
     public function __construct() {
-        add_action( 'init', array( $this, 'set_language_based_on_location' ) );
+        add_action( 'wp', array( $this, 'set_language_based_on_location' ) );
         add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
     }
 
-
-     // Define o idioma com base na localização do usuário
+    // Define o idioma com base na localização do usuário
     public function set_language_based_on_location() {
+        if ( ! function_exists( 'pll_set_language' ) ) {
+            return; 
+        }
+
         if ( isset( $_COOKIE['locale_switcher_lang'] ) ) {
             pll_set_language( sanitize_text_field( $_COOKIE['locale_switcher_lang'] ) );
             return;
@@ -45,15 +46,31 @@ class LocaleSwitcher {
      * @return object|false 
      */
     private function get_user_location() {
-        $response = wp_remote_get( $this->api_url );
+        $api_token = get_option( 'locale_switcher_api_token', '' );
+        
+        if ( empty( $api_token ) ) {
+            error_log( 'LocaleSwitcher: Token da API não está definido.' );
+            return false;
+        }
+        
+        $api_url = 'https://ipinfo.io/json?token=' . urlencode( $api_token );
+
+        $response = wp_remote_get( $api_url );
 
         if ( is_wp_error( $response ) ) {
+            error_log( 'LocaleSwitcher: Erro na requisição da API: ' . $response->get_error_message() );
             return false;
         }
 
         $body = wp_remote_retrieve_body( $response );
+        $data = json_decode( $body );
 
-        return json_decode( $body );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            error_log( 'LocaleSwitcher: Erro ao decodificar JSON da API.' );
+            return false;
+        }
+
+        return $data;
     }
 
     /**
@@ -81,9 +98,11 @@ class LocaleSwitcher {
         );
     }
 
-     // Registra as configurações do plugin
+    // Registra as configurações do plugin
     public function register_settings() {
         register_setting( 'localeswitcher_options_group', 'country_lang_map', array( $this, 'sanitize_country_lang_map' ) );
+
+        register_setting( 'localeswitcher_options_group', 'locale_switcher_api_token', array( 'sanitize_callback' => 'sanitize_text_field' ) );
     }
 
     /**
@@ -113,7 +132,7 @@ class LocaleSwitcher {
     public function create_admin_page() {
         ?>
         <div class="wrap">
-            <h1>LocaleSwitcher Settings</h1>
+            <h1>LocaleSwitcher Configurações</h1>
             <form method="post" action="options.php">
                 <?php
                     settings_fields( 'localeswitcher_options_group' );
@@ -128,6 +147,14 @@ class LocaleSwitcher {
                                 "BR": "pt_BR",
                                 "US": "en_US"
                             }</code></p>
+                        </td>
+                    </tr>
+                    
+                    <tr valign="top">
+                        <th scope="row">Token da API ipinfo.io</th>
+                        <td>
+                            <input type="text" name="locale_switcher_api_token" value="<?php echo esc_attr( get_option( 'locale_switcher_api_token', '' ) ); ?>" class="regular-text" />
+                            <p class="description">Insira o seu token da API do <a href="https://ipinfo.io/" target="_blank">ipinfo.io</a>.</p>
                         </td>
                     </tr>
                 </table>
