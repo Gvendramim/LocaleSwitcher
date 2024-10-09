@@ -43,16 +43,7 @@ Após ativar o plugin, você poderá configurar os mapeamentos de país para idi
 
 Vá para Configurações > LocaleSwitcher.
 
-Insira um JSON no campo de texto contendo os mapeamentos de código de país (ISO 3166-1 alpha-2) para os códigos de idioma (compatível com Polylang). Um exemplo de mapeamento:
-
-{
-    "BR": "pt_BR",
-    "US": "en_US",
-    "ES": "es_ES",
-    "FR": "fr_FR"
-}
-
-Clique em Salvar Alterações.
+Insira um JSON no campo de texto contendo os mapeamentos de código de país (ISO 3166-1 alpha-2) para os códigos de idioma (compatível com Polylang).
 
 
 ### Como Funciona
@@ -66,6 +57,7 @@ O idioma é definido no site usando o plugin Polylang, e o idioma do usuário é
 
 ### Exemplo de Mapeamento
    - Aqui está um exemplo de como você pode configurar o mapeamento de país para idioma:
+```bash
     {
         "BR": "pt_BR",
         "US": "en_US",
