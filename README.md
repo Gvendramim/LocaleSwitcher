@@ -71,3 +71,5 @@ O idioma é definido no site usando o plugin Polylang, e o idioma do usuário é
     }
 
 
+Este arquivo `README.md` fornece todas as informações necessárias para os usuários e desenvolvedores utilizarem e contribuírem com o plugin **LocaleSwitcher**.
+
