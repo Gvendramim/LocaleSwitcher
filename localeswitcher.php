@@ -1,9 +1,8 @@
 <?php
-
 /**
  * Plugin Name: LocaleSwitcher
  * Description: Detects User Location and Sets Language Automatically Using Polylang.
- * Version: 1.1
+ * Version: 1.2
  * Author: Gabriel Vendramim
  */
 
@@ -18,7 +17,6 @@ class LocaleSwitcher {
         add_action( 'admin_init', array( $this, 'register_settings' ) );
     }
 
-    // Define o idioma com base na localização do usuário
     public function set_language_based_on_location() {
         if ( ! function_exists( 'pll_set_language' ) ) {
             return; 
@@ -36,15 +34,11 @@ class LocaleSwitcher {
 
             if ( $lang ) {
                 pll_set_language( $lang );
-                setcookie( 'locale_switcher_lang', $lang, time() + ( 30 * DAY_IN_SECONDS ), COOKIEPATH, COOKIE_DOMAIN );
+                setcookie( 'locale_switcher_lang', $lang, time() + ( 30 * DAY_IN_SECONDS ), COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true );
             }
         }
     }
 
-    /**
-     * Obtém a localização do usuário usando a API 
-     * @return object|false 
-     */
     private function get_user_location() {
         $api_token = get_option( 'locale_switcher_api_token', '' );
         
@@ -54,8 +48,7 @@ class LocaleSwitcher {
         }
         
         $api_url = 'https://ipinfo.io/json?token=' . urlencode( $api_token );
-
-        $response = wp_remote_get( $api_url );
+        $response = wp_remote_get( $api_url, array( 'timeout' => 5 ) );
 
         if ( is_wp_error( $response ) ) {
             error_log( 'LocaleSwitcher: Erro na requisição da API: ' . $response->get_error_message() );
@@ -63,62 +56,50 @@ class LocaleSwitcher {
         }
 
         $body = wp_remote_retrieve_body( $response );
+
+        if ( empty( $body ) ) {
+            error_log( 'LocaleSwitcher: Resposta vazia da API.' );
+            return false;
+        }
+
         $data = json_decode( $body );
 
-        if ( json_last_error() !== JSON_ERROR_NONE ) {
-            error_log( 'LocaleSwitcher: Erro ao decodificar JSON da API.' );
+        if ( json_last_error() !== JSON_ERROR_NONE || ! isset( $data->country ) ) {
+            error_log( 'LocaleSwitcher: Erro ao decodificar JSON ou país não definido.' );
             return false;
         }
 
         return $data;
     }
 
-    /**
-     * Mapeia o código do país para o código de idioma do Polylang
-     * @param string 
-     * @return string|false 
-     */
     private function map_country_to_language( $country_code ) {
-        $country_lang_map = get_option( 'country_lang_map', array(
-            'BR' => 'pt_BR',
-            'US' => 'en_US',
-            // Adicione mais mapeamentos conforme necessário
-        ) );
+        $country_lang_map = get_option( 'country_lang_map', array() );
+
+        if ( ! is_array( $country_lang_map ) ) {
+            return false;
+        }
 
         return isset( $country_lang_map[ $country_code ] ) ? $country_lang_map[ $country_code ] : false;
     }
 
     public function add_admin_menu() {
-        add_options_page(
-            'LocaleSwitcher Settings', 
-            'LocaleSwitcher',          
-            'manage_options',          
-            'localeswitcher',          
-            array( $this, 'create_admin_page' ) 
-        );
+        add_options_page( 'LocaleSwitcher Settings', 'LocaleSwitcher', 'manage_options', 'localeswitcher', array( $this, 'create_admin_page' ) );
     }
 
-    // Registra as configurações do plugin
     public function register_settings() {
         register_setting( 'localeswitcher_options_group', 'country_lang_map', array( $this, 'sanitize_country_lang_map' ) );
-
         register_setting( 'localeswitcher_options_group', 'locale_switcher_api_token', array( 'sanitize_callback' => 'sanitize_text_field' ) );
     }
 
-    /**
-     * Dados de entrada para o mapeamento de país para idioma
-     * @param string 
-     * @return array 
-     */
     public function sanitize_country_lang_map( $input ) {
-        $decoded = json_decode( $input, true );
-        if ( json_last_error() !== JSON_ERROR_NONE ) {
-            add_settings_error(
-                'country_lang_map',
-                'invalid_json',
-                'O JSON inserido é inválido.',
-                'error'
-            );
+        if ( empty( $input ) ) {
+            return array();
+        }
+
+        $decoded = json_decode( stripslashes( $input ), true );
+
+        if ( ! is_array( $decoded ) ) {
+            add_settings_error( 'country_lang_map', 'invalid_json', 'O JSON inserido é inválido.', 'error' );
             return get_option( 'country_lang_map', array() );
         }
 
@@ -126,6 +107,7 @@ class LocaleSwitcher {
         foreach ( $decoded as $country => $lang ) {
             $sanitized[ strtoupper( sanitize_text_field( $country ) ) ] = sanitize_text_field( $lang );
         }
+
         return $sanitized;
     }
 
@@ -142,14 +124,12 @@ class LocaleSwitcher {
                     <tr valign="top">
                         <th scope="row">Mapeamento de País para Idioma</th>
                         <td>
-                            <textarea name="country_lang_map" rows="10" cols="50" class="large-text"><?php echo esc_textarea( json_encode( get_option( 'country_lang_map', array() ), JSON_PRETTY_PRINT ) ); ?></textarea>
-                            <p class="description">Insira um JSON com os Mapeamentos de País para Idioma. Exemplo:<br><code>{
-                                "BR": "pt_BR",
-                                "US": "en_US"
-                            }</code></p>
+                            <textarea name="country_lang_map" rows="10" cols="50" class="large-text"><?php 
+                                echo esc_textarea( json_encode( get_option( 'country_lang_map', array() ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) ); 
+                            ?></textarea>
+                            <p class="description">Insira um JSON com os mapeamentos de País para Idioma. Exemplo:<br><code>{"BR": "pt_BR", "US": "en_US"}</code></p>
                         </td>
                     </tr>
-                    
                     <tr valign="top">
                         <th scope="row">Token da API ipinfo.io</th>
                         <td>
