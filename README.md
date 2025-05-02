@@ -23,7 +23,7 @@
 
    Baixe o arquivo do plugin e mova o diretório `localeswitcher` para o diretório de plugins do WordPress:
    ```bash
-   /wp-content/plugins/localeswitcher/
+   /wp-content/plugins/localeswitcher/ 
 
 2. **Ativar o Plugin**
     No painel do WordPress, vá até Plugins > Plugins Instalados.
